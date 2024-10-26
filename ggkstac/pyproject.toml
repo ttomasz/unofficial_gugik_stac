@@ -1,0 +1,20 @@
+[project]
+name = "ggkstac"
+version = "0.1.0"
+description = "Creates a STAC Catalog with data published by the office of Chief Surveyor of Poland."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.0.1",
+    "owslib>=0.32.0",
+    "pyproj>=3.7.0",
+    "pystac[orjson]>=1.11.0",
+    "pytz>=2024.2",
+]
+
+[project.scripts]
+hello = "ggkstac:hello"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
