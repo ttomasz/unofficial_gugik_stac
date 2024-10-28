@@ -151,20 +151,25 @@ def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None
         )
         logger.debug("Created Item: %s", item)
         yield item
-        # feature["gml_id"]
-        # feature["lowerCorner"]
-        # feature["upperCorner"]
-        feature["godlo"]
-        feature["akt_rok"]
-        feature["piksel"]
-        feature["kolor"]  # "B/W", "RGB", "CIR"
-        feature["zrodlo_danych"]  # "Zdj. analogowe", "Zdj. cyfrowe"
-        feature["uklad_xy"]  # "PL-1992"
-        feature["modul_archiwizacji"]
-        feature["nr_zglosz"]
-        feature["timePosition"]  # akt_data
-        feature["czy_ark_wypelniony"]  # "TAK", "NIE"
-        feature["url_do_pobrania"]
-        feature["dt_pzgik|timePosition"]
-        feature["wlk_pliku_MB"]
-        feature["geometry"]
+
+
+def build_ortho_collection() -> pystac.Collection:
+    logger.info("Buidling Orthophotomap collection with sub-collections and items...")
+    ortho_collection = get_main_collection()
+    layers = list(wfs_layers_interator())
+    for layer in layers:
+        logger.debug("Processing layer: %s(id: %s)...", layer.title, layer.id)
+        layer_collection = wfs_layer_as_pystac_collection(layer=layer)
+        features = get_layer_features(layer_name=layer.id)
+        logger.debug("Adding %s Items to sub-collection %s", len(features.index), layer_collection.id)
+        layer_collection.add_items(items=features_as_items(features=features))
+        logger.debug("Updating extents of sub-collection. Current value: %s", layer_collection.extent.to_dict())
+        layer_collection.update_extent_from_items()
+        logger.debug("Finished updating extents of sub-collection. Current value: %s", layer_collection.extent.to_dict())
+        ortho_collection.add_child(child=layer_collection)
+        logger.debug("Added sub-collection: %s(id: %s) to collection: %s(id: %s).", layer_collection.title, layer_collection.id, ortho_collection.title, ortho_collection.id)
+        break
+    logger.debug("Updating extents of collection. Current value: %s", ortho_collection.extent.to_dict())
+    ortho_collection.update_extent_from_items()
+    logger.debug("Finished updating extents of collection. Current value: %s", ortho_collection.extent.to_dict())
+    return ortho_collection
