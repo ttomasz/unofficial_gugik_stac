@@ -16,6 +16,7 @@ from .log import logger as package_logger
 BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
 CC0 = "CC0-1.0"
 BASE_ID = "poland.gugik.orto"
+BBOX_POLAND = [14.0745211117, 49.0273953314, 24.0299857927, 54.8515359564]
 _service: wfs200.WebFeatureService_2_0_0 | None = None
 re_four_digits = re.compile(r"\d{4}")
 tz = pytz.timezone("Europe/Warsaw")
@@ -31,6 +32,12 @@ def get_main_collection() -> pystac.Collection:
         id=BASE_ID,
         title="Ortofotomapy",
         description="",
+        extent=pystac.Extent(  # initial extent, to be updated after adding objects
+            spatial=pystac.SpatialExtent(bboxes=[BBOX_POLAND]),
+            temporal=pystac.TemporalExtent(intervals=[datetime(1957, 1, 1), datetime.today()])
+        ),
+        license=CC0,
+        keywords=["ortofotomapa", "ortofoto", "zdjęcia lotnicze"],
     )
 
 
