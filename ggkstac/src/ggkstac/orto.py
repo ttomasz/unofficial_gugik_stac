@@ -111,7 +111,6 @@ def get_layer_features(layer_name: str, limit_features: int | None = None, max_r
         version="2.0.0",
         request="GetFeature",
         typeName=layer_name,
-        count=10,
     )
     if limit_features:
         params["count"] = limit_features
