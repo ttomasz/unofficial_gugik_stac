@@ -11,6 +11,8 @@ from owslib.wfs import WebFeatureService, wfs200
 from pyproj import Transformer
 from requests import Request
 
+from . import logger as package_logger
+
 BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
 CC0 = "CC0-1.0"
 BASE_ID = "poland.gugik.orto"
@@ -20,9 +22,11 @@ tz = pytz.timezone("Europe/Warsaw")
 crs_names_mapping = {
     "PL-1992": "EPSG:2180",
 }
+logger = package_logger.getChild(__name__)
 
 
 def get_main_collection() -> pystac.Collection:
+    logger.info("Creating main Orthophotomap collection.")
     return pystac.Collection(
         id=BASE_ID,
         title="Ortofotomapy",
@@ -38,9 +42,12 @@ def wfs_service(max_retries: int = 5) -> wfs200.WebFeatureService_2_0_0:
     def _get_service(try_number: int = 0) -> wfs200.WebFeatureService_2_0_0:
         try_number += 1
         try:
+            logger.info("Connecting to WFS service: %s", BASE_URL)
             return WebFeatureService(url=BASE_URL, version="2.0.0")
         except requests.exceptions.ConnectionError as e:
+            logger.warning("There was an error when trying to connect to WFS service.")
             if try_number <= max_retries:
+                logger.warning("Retrying connection to WFS service (try %s/%s)", try_number, max_retries)
                 return _get_service(try_number)
             else:
                 raise Exception("Max number of retries reached.") from e
@@ -51,12 +58,14 @@ def wfs_service(max_retries: int = 5) -> wfs200.WebFeatureService_2_0_0:
 
 
 def wfs_layers_interator() -> Generator[wfs200.ContentMetadata, None, None]:
+    logger.info("Listing WFS layers...")
     service = wfs_service()
     content = service.contents
     yield from content.values()
 
 
 def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Collection:
+    logger.info("Converting layer: %s(id: %s) to PySTAC collection.", layer.title, layer.id)
     year_match = re_four_digits.search(layer.title)
     if year_match is None:
         raise Exception(f"Could not find year in WFS layer title: {layer.title}")
@@ -74,6 +83,7 @@ def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Coll
         license=CC0,
         keywords=["ortofotomapa", "ortofoto", "zdjęcia lotnicze"],
     )
+    logger.debug("Created Collection: %s", collection)
     return collection
 
 
@@ -86,11 +96,14 @@ def get_layer_features(layer_name: str) -> gpd.GeoDataFrame:
         count=10,
     )
     wfs_request_url = Request('GET', BASE_URL, params=params).prepare().url
+    logger.info("Requesting Features from WFS service using URL: %s", wfs_request_url)
     data: gpd.GeoDataFrame = gpd.read_file(wfs_request_url)
+    logger.info("Parsed %s features into GeoDataFrame.", len(data.index))
     return data
 
 
 def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None, None]:
+    logger.debug("Reprojecting features to EPSG:4326.")
     features = features.to_crs(epsg=4326)
     crs_transformer = Transformer(2180, 4326)
     for _, feature in features.iterrows():
@@ -100,6 +113,7 @@ def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None
         xmax, ymax = str(feature["upperCorner"]).split(" ")
         right, top = crs_transformer.transform(float(xmax), float(ymax))
         bbox = (left, bottom, right, top)
+        logger.debug("Reprojected BBOX from values: %s, %s, %s, %s to: %s", xmin, ymin, xmax, ymax, bbox)
 
         item = pystac.Item(
             id=feature["gml_id"],
@@ -115,6 +129,7 @@ def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None
                 ),
             },
         )
+        logger.debug("Created Item: %s", item)
         yield item
         # feature["gml_id"]
         # feature["lowerCorner"]
