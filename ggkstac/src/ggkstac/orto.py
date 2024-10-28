@@ -112,20 +112,20 @@ def get_layer_features(layer_name: str) -> gpd.GeoDataFrame:
 def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None, None]:
     logger.debug("Reprojecting features to EPSG:4326.")
     features = features.to_crs(epsg=4326)
-    crs_transformer = Transformer(2180, 4326)
+    crs_transformer = Transformer.from_crs(2180, 4326)
     for _, feature in features.iterrows():
         # prepare bbox reprojected to EPSG:4326
         xmin, ymin = str(feature["lowerCorner"]).split(" ")
-        left, bottom = crs_transformer.transform(float(xmin), float(ymin))
+        bottom, left = crs_transformer.transform(float(xmin), float(ymin))
         xmax, ymax = str(feature["upperCorner"]).split(" ")
-        right, top = crs_transformer.transform(float(xmax), float(ymax))
-        bbox = (left, bottom, right, top)
+        top, right = crs_transformer.transform(float(xmax), float(ymax))
+        bbox = [left, bottom, right, top]
         logger.debug("Reprojected BBOX from values: %s, %s, %s, %s to: %s", xmin, ymin, xmax, ymax, bbox)
 
         item = pystac.Item(
             id=feature["gml_id"],
-            geometry=bbox,
-            bbox=feature["geometry"],
+            geometry=feature["geometry"].__geo_interface__,
+            bbox=bbox,
             datetime=datetime.fromisoformat(feature["timePosition"]),
             properties={},
             assets={
