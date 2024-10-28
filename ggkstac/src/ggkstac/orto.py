@@ -1,17 +1,15 @@
+import re
 from collections.abc import Generator
 from datetime import datetime, timedelta
-import re
 
 import geopandas as gpd
-from owslib.wfs import WebFeatureService
-from owslib.wfs import wfs200
-from pyproj import Transformer
 import pystac
 import pystac.media_type
 import pytz
-from requests import Request
 import requests
-
+from owslib.wfs import WebFeatureService, wfs200
+from pyproj import Transformer
+from requests import Request
 
 BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
 CC0 = "CC0-1.0"
@@ -55,8 +53,7 @@ def wfs_service(max_retries: int = 5) -> wfs200.WebFeatureService_2_0_0:
 def wfs_layers_interator() -> Generator[wfs200.ContentMetadata, None, None]:
     service = wfs_service()
     content = service.contents
-    for layer in content.values():
-        yield layer
+    yield from content.values()
 
 
 def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Collection:
@@ -65,12 +62,10 @@ def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Coll
         raise Exception(f"Could not find year in WFS layer title: {layer.title}")
     year = int(year_match.group())
     start_dt = datetime(year=year, month=1, day=1, tzinfo=tz)
-    end_dt = datetime(year=year + 1, month=1, day=1, tzinfo=tz) - timedelta(
-        microseconds=1
-    )
+    end_dt = datetime(year=year + 1, month=1, day=1, tzinfo=tz) - timedelta(microseconds=1)
     collection = pystac.Collection(
         id=f"{BASE_ID}.{layer.id}",
-        title=layer.title,
+        title=layer.title,  # todo: maybe construct name by myself from year to allow for transaltions?
         description=layer.title,
         extent=pystac.Extent(
             spatial=pystac.SpatialExtent(bboxes=[layer.boundingBoxWGS84]),
