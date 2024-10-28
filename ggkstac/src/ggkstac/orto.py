@@ -166,7 +166,6 @@ def build_ortho_collection() -> pystac.Collection:
         logger.debug("Finished updating extents of sub-collection. Current value: %s", layer_collection.extent.to_dict())
         ortho_collection.add_child(child=layer_collection)
         logger.debug("Added sub-collection: %s(id: %s) to collection: %s(id: %s).", layer_collection.title, layer_collection.id, ortho_collection.title, ortho_collection.id)
-        break
     logger.debug("Updating extents of collection. Current value: %s", ortho_collection.extent.to_dict())
     ortho_collection.update_extent_from_items()
     logger.debug("Finished updating extents of collection. Current value: %s", ortho_collection.extent.to_dict())
