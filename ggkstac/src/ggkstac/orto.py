@@ -11,7 +11,7 @@ from owslib.wfs import WebFeatureService, wfs200
 from pyproj import Transformer
 from requests import Request
 
-from . import logger as package_logger
+from .log import logger as package_logger
 
 BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
 CC0 = "CC0-1.0"
