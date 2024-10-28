@@ -12,12 +12,10 @@ from owslib.wfs import WebFeatureService, wfs200
 from pyproj import Transformer
 from requests import Request
 
+from . import const
 from .log import logger as package_logger
 
 BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
-CC0 = "CC0-1.0"
-BASE_ID = "poland.gugik.orto"
-BBOX_POLAND = [14.0745211117, 49.0273953314, 24.0299857927, 54.8515359564]
 _service: wfs200.WebFeatureService_2_0_0 | None = None
 re_four_digits = re.compile(r"\d{4}")
 tz = pytz.timezone("Europe/Warsaw")
@@ -30,14 +28,14 @@ logger = package_logger.getChild(__name__)
 def get_main_collection() -> pystac.Collection:
     logger.info("Creating main Orthophotomap collection.")
     return pystac.Collection(
-        id=BASE_ID,
+        id=const.ID_COLLECTION_ORTHO,
         title="Ortofotomapy",
-        description="",
+        description="Kolekcja z arkuszami ortofotomap, które można pobrać. Podzielona latami.",
         extent=pystac.Extent(  # initial extent, to be updated after adding objects
-            spatial=pystac.SpatialExtent(bboxes=[BBOX_POLAND]),
+            spatial=pystac.SpatialExtent(bboxes=[const.BBOX_POLAND]),
             temporal=pystac.TemporalExtent(intervals=[datetime(1957, 1, 1), datetime.today()])
         ),
-        license=CC0,
+        license=const.CC0,
         keywords=["ortofotomapa", "ortofoto", "zdjęcia lotnicze"],
     )
 
@@ -81,14 +79,14 @@ def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Coll
     start_dt = datetime(year=year, month=1, day=1, tzinfo=tz)
     end_dt = datetime(year=year + 1, month=1, day=1, tzinfo=tz) - timedelta(microseconds=1)
     collection = pystac.Collection(
-        id=f"{BASE_ID}.{layer.id}",
-        title=layer.title,  # todo: maybe construct name by myself from year to allow for transaltions?
-        description=layer.title,
+        id=const.ID_SUBCOLLECTION_ORTHO_TEMPLATE.format(year=str(year)),
+        title=str(year),
+        description=f"Arkusze ortofotomapy z roku: {year}",
         extent=pystac.Extent(
             spatial=pystac.SpatialExtent(bboxes=[layer.boundingBoxWGS84]),
             temporal=pystac.TemporalExtent(intervals=[[start_dt, end_dt]]),
         ),
-        license=CC0,
+        license=const.CC0,
         keywords=["ortofotomapa", "ortofoto", "zdjęcia lotnicze"],
     )
     logger.debug("Created Collection: %s", collection)
