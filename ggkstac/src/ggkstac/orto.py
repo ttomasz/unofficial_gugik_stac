@@ -94,7 +94,18 @@ def wfs_layer_as_pystac_collection(layer: wfs200.ContentMetadata) -> pystac.Coll
     return collection
 
 
-def get_layer_features(layer_name: str) -> gpd.GeoDataFrame:
+def get_layer_features(layer_name: str, limit_features: int | None = None, max_retries: int = 5) -> gpd.GeoDataFrame:
+    def _try_reading_data(try_number: int = 0) -> gpd.GeoDataFrame:
+        try_number += 1
+        try:
+            return gpd.read_file(wfs_request_url)
+        except http.client.RemoteDisconnected as e:
+            logger.warning("There was an error when trying to connect to WFS service.")
+            if try_number <= max_retries:
+                logger.warning("Retrying connection to WFS service (try %s/%s)", try_number, max_retries)
+                return _try_reading_data(try_number)
+            else:
+                raise Exception("Max number of retries reached.") from e
     params = dict(
         service="WFS",
         version="2.0.0",
@@ -102,9 +113,11 @@ def get_layer_features(layer_name: str) -> gpd.GeoDataFrame:
         typeName=layer_name,
         count=10,
     )
+    if limit_features:
+        params["count"] = limit_features
     wfs_request_url = Request('GET', BASE_URL, params=params).prepare().url
     logger.info("Requesting Features from WFS service using URL: %s", wfs_request_url)
-    data: gpd.GeoDataFrame = gpd.read_file(wfs_request_url)
+    data: gpd.GeoDataFrame = _try_reading_data()
     logger.info("Parsed %s features into GeoDataFrame.", len(data.index))
     return data
 
