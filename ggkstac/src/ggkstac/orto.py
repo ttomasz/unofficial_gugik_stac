@@ -4,8 +4,10 @@ import re
 import tempfile
 from collections.abc import Generator, Iterable
 from datetime import datetime, timedelta
+from xml.dom import pulldom
 
 import geopandas as gpd
+import pandas as pd
 import pystac
 import pystac.media_type
 import pytz
@@ -120,23 +122,39 @@ def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None
 
 async def prepare_subcollection(layer: wfs200.ContentMetadata) -> pystac.Collection:
     logger.debug("Processing layer: %s(id: %s)...", layer.title, layer.id)
+    page_size = 50_000
     params = dict(
         SERVICE="WFS",
         VERSION="2.0.0",
         REQUEST="GetFeature",
         SRSNAME="EPSG:4326",
         TYPENAME=layer.id,
+        COUNT=page_size,
     )
     layer_collection = wfs_layer_as_pystac_collection(layer=layer)
-    with tempfile.NamedTemporaryFile() as f:
-        await download(url=WFS_BASE_URL, params=params, file_path=f.name)
-        data: gpd.GeoDataFrame = gpd.read_file(f)
-        logger.info("[Layer: %s] Parsed %s features into GeoDataFrame.", layer.id, len(data.index))
-        logger.debug("[Layer: %s] Adding Items to sub-collection %s", layer.id, layer_collection.id)
-        layer_collection.add_items(items=features_as_items(features=data))
-        logger.debug("[Layer: %s] Updating extents of sub-collection. Current value: %s", layer.id, layer_collection.extent.to_dict())
-        layer_collection.update_extent_from_items()
-        logger.debug("[Layer: %s] Finished updating extents of sub-collection. Current value: %s", layer.id, layer_collection.extent.to_dict())
+    dfs: list[gpd.GeoDataFrame] = []
+    async def _go_through_pages(url: str, params: dict | None) -> None:
+        with tempfile.NamedTemporaryFile() as f:
+            await download(url=url, params=params, file_path=f.name)
+            dfs.append(gpd.read_file(f))
+            f.seek(0)
+            next_url = None
+            doc = pulldom.parse(f)
+            for event, node in doc:
+                if event == pulldom.START_ELEMENT and node.tagName == "wfs:FeatureCollection":
+                    next_url = node.getAttribute('next')
+                    break
+            if next_url:
+                await _go_through_pages(url=next_url, params=None)
+
+    await _go_through_pages(url=WFS_BASE_URL, params=params)
+    data = pd.concat(dfs)
+    logger.info("[Layer: %s] Parsed %s features into GeoDataFrame.", layer.id, len(data.index))
+    logger.debug("[Layer: %s] Adding Items to sub-collection %s", layer.id, layer_collection.id)
+    layer_collection.add_items(items=features_as_items(features=data))
+    logger.debug("[Layer: %s] Updating extents of sub-collection. Current value: %s", layer.id, layer_collection.extent.to_dict())
+    layer_collection.update_extent_from_items()
+    logger.debug("[Layer: %s] Finished updating extents of sub-collection. Current value: %s", layer.id, layer_collection.extent.to_dict())
     return layer_collection
 
 

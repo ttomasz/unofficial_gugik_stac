@@ -5,7 +5,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-async def download(url: str, params: dict, file_path: str) -> None:
+async def download(url: str, params: dict | None, file_path: str) -> None:
     logger.info("Downloading from URL: %s with params %s to file: %s", url, params, file_path)
     max_tries = 20  # because the servers suck and return random errors
     async def _dl(try_number: int = 1) -> None:
