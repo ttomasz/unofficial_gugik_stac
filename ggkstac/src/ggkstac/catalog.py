@@ -3,19 +3,27 @@ import logging
 import pystac
 
 from .const import ID_CATALOG
-from .orto import build_ortho_collection
 
 logger = logging.getLogger(__name__)
 
-async def build_catalog() -> pystac.Catalog:
-    logger.info("Building main Catalog...")
+
+def get_main_catalog() -> pystac.Catalog:
     catalog = pystac.Catalog(
         id=ID_CATALOG,
         title="Katalog otwartych danych GUGiK",
         description="Katalog STAC pozwalający przeglądać dane udostępniane przez Główny Urząd Geodezji i Kartografii.",
+        stac_extensions=[
+            "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+            "https://stac-extensions.github.io/language/v1.0.0/schema.json",
+            "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+        ],
+        extra_fields={
+            "language": {
+                "code": "pl",
+                "name": "Polski",
+                "alternate": "Polish",
+                "dir": "ltr",
+            },
+        },
     )
-    logger.info("Building and adding Ortho collection...")
-    ortho_collection = await build_ortho_collection()
-    catalog.add_child(child=ortho_collection)
-    logger.info("Catalog is ready.")
     return catalog

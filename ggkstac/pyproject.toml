@@ -8,12 +8,13 @@ dependencies = [
     "geopandas>=1.0.1",
     "httpx>=0.27.2",
     "owslib>=0.32.0",
+    "pyarrow>=18.0.0",
     "pystac[orjson]>=1.11.0",
     "pytz>=2024.2",
 ]
 
 [project.scripts]
-hello = "ggkstac:hello"
+ggkstac = "ggkstac.cli:main"
 
 [build-system]
 requires = ["hatchling"]
