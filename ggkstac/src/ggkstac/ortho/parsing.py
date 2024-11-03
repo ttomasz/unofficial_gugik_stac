@@ -39,7 +39,7 @@ def features_as_items(features: gpd.GeoDataFrame) -> Generator[pystac.Item, None
             id=feature["gml_id"],
             geometry=feature["geometry"].__geo_interface__,
             bbox=bbox,
-            datetime=datetime.fromisoformat(feature["timePosition"]),
+            datetime=datetime.fromisoformat(feature["timePosition"]).replace(tzinfo=ortho_const.tz),
             properties={
                 "title": f"""{feature["zrodlo_danych"]}: {feature["godlo"]} - {feature["timePosition"]} - {feature["kolor"]}""",
                 "description": f"""
