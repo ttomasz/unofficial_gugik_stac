@@ -1,9 +1,6 @@
-import re
-
 import pytz
 
 WFS_BASE_URL = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze"
-re_four_digits = re.compile(r"\d{4}")
 tz = pytz.timezone("Europe/Warsaw")
 crs_names_mapping = {
     "PL-1992": "EPSG:2180",
