@@ -1,22 +1,18 @@
 import logging
 
-import pystac
-
-from .const import ID_CATALOG
+from .const import ID_CATALOG, MEDIA_TYPE_JSON, STAC_EXTENSIONS, STAC_VERSION
 
 logger = logging.getLogger(__name__)
 
 
-def get_main_catalog() -> pystac.Catalog:
-    catalog = pystac.Catalog(
+def get_main_catalog() -> dict:
+    catalog = dict(
         id=ID_CATALOG,
         title="Katalog otwartych danych GUGiK",
         description="Katalog STAC pozwalający przeglądać dane udostępniane przez Główny Urząd Geodezji i Kartografii.",
-        stac_extensions=[
-            "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
-            "https://stac-extensions.github.io/language/v1.0.0/schema.json",
-            "https://stac-extensions.github.io/file/v2.1.0/schema.json",
-        ],
+        stac_version=STAC_VERSION,
+        stac_extensions=STAC_EXTENSIONS,
+        type="Catalog",
         extra_fields={
             "language": {
                 "code": "pl",
@@ -25,5 +21,12 @@ def get_main_catalog() -> pystac.Catalog:
                 "dir": "ltr",
             },
         },
+        links=[
+            dict(
+                rel="root",
+                href="./catalog.json",
+                type=MEDIA_TYPE_JSON,
+            )
+        ],
     )
     return catalog
