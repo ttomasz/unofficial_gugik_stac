@@ -16,11 +16,11 @@ def calculate_extent(gdf: gpd.GeoDataFrame) -> dict:
     max_ts = ortho_const.tz.localize(datetime.fromisoformat(gdf["timePosition"].max()) + timedelta(days=1, microseconds=-1)) # type: ignore
     return dict(
         spatial=dict(bbox=[[float(xmin), float(ymin), float(xmax), float(ymax)]]),
-        temporal=dict(interval=[min_ts.astimezone(tz=UTC).isoformat(), max_ts.astimezone(tz=UTC).isoformat()])
+        temporal=dict(interval=[[min_ts.astimezone(tz=UTC).isoformat(), max_ts.astimezone(tz=UTC).isoformat()]])
     )
 
 
-def features_as_items(features: gpd.GeoDataFrame, collection_id: str) -> Generator[dict, None, None]:
+def features_as_items(features: gpd.GeoDataFrame) -> Generator[dict, None, None]:
     for _, feature in features.iterrows():
         ymin, xmin = str(feature["lowerCorner"]).split(" ")
         ymax, xmax = str(feature["upperCorner"]).split(" ")
@@ -28,7 +28,10 @@ def features_as_items(features: gpd.GeoDataFrame, collection_id: str) -> Generat
 
         item = dict(
             stac_version=const.STAC_VERSION,
-            stac_extensions=const.STAC_EXTENSIONS,
+            stac_extensions=[
+                const.STAC_EXTENSION_PROJECTION,
+                const.STAC_EXTENSION_FILE,
+            ],
             type="Feature",
             id=feature["gml_id"],
             bbox=bbox,
@@ -61,7 +64,6 @@ f"""{feature["zrodlo_danych"]}
                     roles=["data"],
                 ),
             },
-            collection=collection_id,
             links=[
                 dict(
                     rel="root",
@@ -81,7 +83,7 @@ f"""{feature["zrodlo_danych"]}
 def get_main_collection() -> dict:
     return dict(
         stac_version=const.STAC_VERSION,
-        stac_extensions=const.STAC_EXTENSIONS,
+        stac_extensions=[],
         type="Collection",
         id=const.ID_COLLECTION_ORTHO,
         title="Ortofotomapy",
@@ -120,16 +122,11 @@ def geoparquet_to_collection(
     else:
         raise Exception("Could not find year in layer features in akt_rok column.")
     logger.info("Preparing items for collection: %s", collection_id)
-    items = list(
-        features_as_items(
-            features=gdf,
-            collection_id=collection_id,
-        )
-    )
+    items = list(features_as_items(features=gdf))
     logger.info("Items for collection: %s are ready. Adding to collection object.", collection_id)
     subcollection = dict(
         stac_version=const.STAC_VERSION,
-        stac_extensions=const.STAC_EXTENSIONS,
+        stac_extensions=[],
         type="Collection",
         id=collection_id,
         title=collection_year,
@@ -138,11 +135,6 @@ def geoparquet_to_collection(
         license=const.CC0,
         keywords=["ortofotomapa", "ortofoto", "zdjęcia lotnicze"],
         links=[
-            # /catalog.json
-            # /ortho/collection.json
-            # /ortho/1957/collection.json
-            # /ortho/1957/item1.json
-            # /ortho/1957/item2.json
             dict(
                 rel="root",
                 href="../../catalog.json",

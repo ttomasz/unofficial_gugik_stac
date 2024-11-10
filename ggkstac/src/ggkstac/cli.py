@@ -50,7 +50,7 @@ def get_parser() -> argparse.ArgumentParser:
             gdf = gpd.read_parquet(file)
             sub_collection, items = geoparquet_to_collection(gdf=gdf)
             ortho_collection["links"].append(dict(rel="child", href=f"./{sub_collection['id']}/collection.json", type=const.MEDIA_TYPE_JSON, title=sub_collection["title"]))
-            ortho_collection["extent"]["temporal"]["interval"].append(sub_collection["extent"]["temporal"]["interval"])
+            ortho_collection["extent"]["temporal"]["interval"].append(sub_collection["extent"]["temporal"]["interval"][0])
             sub_collection_dir: Path = output_dir / const.ID_COLLECTION_ORTHO / sub_collection["id"]
             sub_collection_file = sub_collection_dir / "collection.json"
             sub_collection_dir.mkdir()
