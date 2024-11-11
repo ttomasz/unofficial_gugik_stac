@@ -6,7 +6,9 @@ from datetime import timedelta
 from pathlib import Path
 from time import perf_counter
 
+import dotenv
 import geopandas as gpd
+import obstore
 import orjson
 
 from . import const
@@ -71,6 +73,29 @@ def get_parser() -> argparse.ArgumentParser:
         with catalog_file.open("wb") as f:
             f.write(orjson.dumps(catalog))
 
+    async def upload_catalog(input_folder: str, remote_bucket: str, max_tasks: int = 64) -> None:
+        dotenv.load_dotenv()
+        s3 = obstore.store.S3Store.from_env(bucket=remote_bucket)
+        local_dir = Path(input_folder)
+        semaphore = asyncio.Semaphore(max_tasks)
+
+        async def upload_file(file: Path):
+            async with semaphore:
+                await obstore.put_async(store=s3, file=file, path=str(file.relative_to(local_dir)))
+
+        file_paths = (path for path in local_dir.rglob("*") if path.is_file())
+        logger.info("Starting upload to bucket: %s", remote_bucket)
+
+        completed_count = 0
+        tasks = (upload_file(file=file) for file in file_paths)
+        for task in asyncio.as_completed(tasks):
+            await task
+            completed_count += 1
+            if completed_count % 10_000 == 0:
+                logger.info("Uploaded %s files so far.", completed_count)
+        logger.info("Finished upload of files.")
+        logger.info("Number of files uploaded: %s", completed_count)
+
 
     parser = argparse.ArgumentParser(
         prog="ggkstac",
@@ -110,12 +135,22 @@ def get_parser() -> argparse.ArgumentParser:
     subparser_convert = subparsers.add_parser(
         name="convert_geoparquet",
         description="Parameters for 'convert_geoparquet' action.",
-        help="Comverts saved GeoParquet files into STAC Catalog.",
+        help="Converts saved GeoParquet files into STAC Catalog.",
         allow_abbrev=False,
     )
     subparser_convert.add_argument("--input-folder", type=str, required=True, help="Folder where saved GeoParquet files are.")
     subparser_convert.add_argument("--output-folder", type=str, required=True, help="Folder where STAC Catalog will be saved.")
     subparser_convert.set_defaults(func=convert_geoparquet_files, action="convert_geoparquet")
+
+    subparser_upload = subparsers.add_parser(
+        name="upload_catalog",
+        description="Parameters for 'upload_catalog' action.",
+        help="Uploads STAC Catalog files into s3-compatible blob storage.",
+        allow_abbrev=False,
+    )
+    subparser_upload.add_argument("--input-folder", type=str, required=True, help="Local folder where STAC Catalog files are.")
+    subparser_upload.add_argument("--remote-bucket", type=str, required=True, help="Name of blob storage bucket where STAC Catalog will be uploaded.")
+    subparser_upload.set_defaults(func=upload_catalog, action="upload_catalog")
 
     return parser
 
